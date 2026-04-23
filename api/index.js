@@ -111,26 +111,33 @@ app.post('/api/auth/login', Ze(async (req, res) => {
 
     // Fetch session
     let sessionKey = null;
-    if (supabase) {
-        const { data: session, error: sessionError } = await supabase
-            .from('sessions')
-            .select('key')
-            .eq('id', sessionId)
-            .gt('expires_at', new Date().toISOString())
-            .maybeSingle();
-        
-        if (session) sessionKey = session.key;
+    try {
+        if (supabase) {
+            const { data: session, error: sessionError } = await supabase
+                .from('sessions')
+                .select('key')
+                .eq('id', sessionId)
+                .gt('expires_at', new Date().toISOString())
+                .maybeSingle();
+            
+            if (session) sessionKey = session.key;
+            if (sessionError) console.error('[SESSION DB ERROR]', sessionError.message);
+        }
+    } catch (err) {
+        console.error('[SESSION FETCH FATAL]', err.message);
     }
 
-    if (!sessionKey) return res.status(401).json({ error: 'Session expired or invalid. Please reload.' });
+    if (!sessionKey) return res.status(401).json({ error: 'Session expired or invalid. Please reload the page.' });
 
     try {
-        const { username, password } = decryptPayload(encryptedPayload, sessionKey);
+        const decrypted = decryptPayload(encryptedPayload, sessionKey);
+        const { username, password } = decrypted;
 
         if (!username || !password) {
             return res.json(encryptResponse({ error: 'Username and password required' }, sessionKey));
         }
 
+        // Fetch user
         const { data: user, error: userError } = await supabase
             .from('users')
             .select('*')
@@ -141,22 +148,40 @@ app.post('/api/auth/login', Ze(async (req, res) => {
             return res.json(encryptResponse({ success: false, error: 'Invalid username or password' }, sessionKey));
         }
 
+        // Verify password
         const validPass = await bcrypt.compare(password, user.password_hash);
         if (!validPass) {
             return res.json(encryptResponse({ success: false, error: 'Invalid username or password' }, sessionKey));
         }
 
-        const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET || 'super_secret_jwt_key', { expiresIn: '24h' });
+        // Fetch user's key if available
+        let userKey = null;
+        const { data: keyData } = await supabase
+            .from('access_keys')
+            .select('key_value')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        
+        if (keyData) {
+            userKey = keyData.key_value;
+        }
+
+        const token = jwt.sign(
+            { id: user.id, username: user.username }, 
+            process.env.JWT_SECRET || 'super_secret_jwt_key', 
+            { expiresIn: '24h' }
+        );
         
         res.json(encryptResponse({ 
             success: true, 
             user: { username: user.username, uid: user.uid }, 
+            key: userKey,
             token 
         }, sessionKey));
 
     } catch (e) {
         console.error('[LOGIN ERROR]', e);
-        res.status(400).json({ error: 'Security verification failed' });
+        res.status(400).json({ error: 'Security verification failed. Please try again.' });
     }
 }));
 
@@ -188,6 +213,18 @@ app.post('/api/mod/login', Ze(async (req, res) => {
             return res.status(401).json({ status: 'error', message: 'Incorrect password' });
         }
 
+        // Fetch user's key if available
+        let userKey = null;
+        const { data: keyData } = await supabase
+            .from('access_keys')
+            .select('key_value')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        
+        if (keyData) {
+            userKey = keyData.key_value;
+        }
+
         const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET || 'super_secret_jwt_key', { expiresIn: '7d' });
 
         console.log(`[MOD LOGIN] Success: ${username} (UID: ${user.uid})`);
@@ -197,7 +234,8 @@ app.post('/api/mod/login', Ze(async (req, res) => {
             token: token,
             user: {
                 username: user.username,
-                uid: user.uid
+                uid: user.uid,
+                key: userKey
             }
         });
     } catch (err) {
