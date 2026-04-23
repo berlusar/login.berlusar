@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Berlusar Server - Login</title>
+  <script src="https://js.hcaptcha.com/1/api.js" async="" defer=""></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Rajdhani', Arial, sans-serif;
+      background: linear-gradient(135deg, #0d0d0d 0%, #1a1a1a 50%, #0d0d0d 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px;
+    }
+
+    .top-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(0, 0, 0, 0.85);
+      border-bottom: 2px solid #0056B3;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 100;
+    }
+
+    .top-bar-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .top-bar-logo span.fire {
+      font-size: 22px;
+    }
+
+    .top-bar-logo span.name {
+      color: #0056B3;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    .lang-select {
+      background: #111;
+      color: #ccc;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-family: 'Rajdhani', Arial, sans-serif;
+      cursor: pointer;
+    }
+
+    .container {
+      background: linear-gradient(145deg, #1a1a1a 0%, #111 100%);
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 30px;
+      max-width: 400px;
+      width: 100%;
+      margin-top: 60px;
+    }
+
+    .logo {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .logo .icon {
+      font-size: 42px;
+    }
+
+    .logo h1 {
+      color: #0056B3;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin-top: 8px;
+    }
+
+    .logo p {
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      color: #0056B3;
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px 14px;
+      background: #0a0a0a;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      color: #eee;
+      font-size: 14px;
+      font-family: 'Rajdhani', Arial, sans-serif;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: #007BFF;
+    }
+
+    .form-group input::placeholder {
+      color: #444;
+    }
+
+    .captcha-box {
+      margin: 18px 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #0056B3 0%, #007BFF 100%);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 700;
+      font-family: 'Rajdhani', Arial, sans-serif;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: opacity 0.2s;
+    }
+
+    .btn-login:hover {
+      opacity: 0.9;
+    }
+
+    .btn-login:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .error {
+      background: rgba(244, 67, 54, 0.1);
+      border: 1px solid rgba(244, 67, 54, 0.3);
+      color: #f44336;
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 18px;
+    }
+
+    .footer a {
+      color: #555;
+      font-size: 11px;
+      text-decoration: none;
+    }
+
+    .footer a:hover {
+      color: #0056B3;
+    }
+
+    .disclaimer-text {
+      text-align: center;
+      color: #444;
+      font-size: 10px;
+      margin-top: 20px;
+      max-width: 400px;
+      line-height: 1.4;
+    }
+
+    .disclaimer-text strong {
+      color: #0056B3;
+    }
+
+    body[dir="rtl"] .form-group label,
+    body[dir="rtl"] .logo,
+    body[dir="rtl"] .footer,
+    body[dir="rtl"] .disclaimer-text {
+      font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+    }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.9);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .loading-overlay.active {
+      display: flex;
+    }
+
+    .loading-overlay .loader {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #0056B3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loading-overlay-text {
+      color: #0056B3;
+      font-size: 14px;
+    }
+
+    .form-blocked {
+      opacity: 0.5;
+      pointer-events: none;
+      filter: blur(2px);
+    }
+
+    /* Toast Notification System */
+    #toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 11000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: rgba(26, 26, 26, 0.95);
+      border-left: 4px solid #0056B3;
+      color: #eee;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      min-width: 280px;
+      max-width: 400px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transform: translateX(120%);
+      transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      pointer-events: auto;
+    }
+
+    .toast.active {
+      transform: translateX(0);
+    }
+
+    .toast-icon {
+      font-size: 20px;
+    }
+
+    .toast-success {
+      border-left-color: #28a745;
+    }
+
+    .toast-error {
+      border-left-color: #dc3545;
+    }
+
+    .toast-info {
+      border-left-color: #17a2b8;
+    }
+
+    .toast-warning {
+      border-left-color: #ffc107;
+    }
+
+    .toast-content {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-weight: 700;
+      font-size: 14px;
+      display: block;
+      margin-bottom: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .toast-message {
+      font-size: 13px;
+      color: #aaa;
+    }
+  </style>
+
+  <script>
+    // Crypto Utils - AES Encryption in Frontend
+    window.CryptoUtils = (function () {
+      function base64Encode(str) { return btoa(str); }
+      function base64Decode(str) { return atob(str); }
+      function ab2str(buf) { return String.fromCharCode.apply(null, new Uint8Array(buf)); }
+
+      async function importKey(keyBase64) {
+        const keyData = Uint8Array.from(base64Decode(keyBase64), c => c.charCodeAt(0));
+        return await crypto.subtle.importKey('raw', keyData, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
+      }
+
+      async function encrypt(data, keyBase64) {
+        try {
+          const key = await importKey(keyBase64);
+          const iv = crypto.getRandomValues(new Uint8Array(16));
+          const encoded = new TextEncoder().encode(JSON.stringify(data));
+          const encrypted = await crypto.subtle.encrypt({ name: 'AES-CBC', iv: iv }, key, encoded);
+          const ivBase64 = base64Encode(ab2str(iv));
+          const encryptedBase64 = base64Encode(ab2str(encrypted));
+          return ivBase64 + ':' + encryptedBase64;
+        } catch (error) {
+          console.error('[CRYPTO] Encrypt error:', error);
+          return null;
+        }
+      }
+
+      async function decrypt(encryptedData, keyBase64) {
+        try {
+          const parts = encryptedData.split(':');
+          if (parts.length < 2) throw new Error('Invalid format');
+          const iv = Uint8Array.from(base64Decode(parts[0]), c => c.charCodeAt(0));
+          const encrypted = Uint8Array.from(base64Decode(parts.slice(1).join(':')), c => c.charCodeAt(0));
+          const key = await importKey(keyBase64);
+          const decrypted = await crypto.subtle.decrypt({ name: 'AES-CBC', iv: iv }, key, encrypted);
+          return JSON.parse(new TextDecoder().decode(decrypted));
+        } catch (error) {
+          console.error('[CRYPTO] Decrypt error:', error);
+          return null;
+        }
+      }
+
+      function generateNonce() {
+        const array = new Uint8Array(16);
+        crypto.getRandomValues(array);
+        return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+      }
+
+      function generateFingerprint() {
+        const nav = navigator.userAgent + navigator.language + screen.width + screen.height;
+        return btoa(nav).substring(0, 32);
+      }
+
+      function showToast(title, message, type = 'info') {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+
+        let icon = 'info-circle';
+        if (type === 'success') icon = 'check-circle';
+        if (type === 'error') icon = 'exclamation-triangle';
+        if (type === 'warning') icon = 'exclamation-circle';
+
+        toast.innerHTML = `
+          <i class="fas fa-${icon} toast-icon"></i>
+          <div class="toast-content">
+            <span class="toast-title">${title}</span>
+            <span class="toast-message">${message}</span>
+          </div>
+        `;
+
+        container.appendChild(toast);
+        setTimeout(() => toast.classList.add('active'), 10);
+
+        setTimeout(() => {
+          toast.classList.remove('active');
+          setTimeout(() => toast.remove(), 500);
+        }, 5000);
+      }
+
+      return { encrypt, decrypt, generateNonce, generateFingerprint, showToast };
+    })();
+
+    // SECURE API CLIENT
+    window.SecureAPI = (function () {
+      let sessionId = null;
+      let sessionKey = null;
+      let initialized = false;
+
+      async function init(action = 'page_load') {
+        try {
+          const fingerprint = CryptoUtils.generateFingerprint();
+          const response = await fetch('/api/session/init', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fingerprint, action })
+          });
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.message || 'Failed to init session');
+          }
+          const data = await response.json();
+          sessionId = data.session_id;
+          sessionKey = data.key;
+          initialized = true;
+          return true;
+        } catch (error) {
+          console.error('[SECURE] Init error:', error);
+          CryptoUtils.showToast('Security Error', error.message, 'error');
+          return false;
+        }
+      }
+
+      async function secureRequest(url, action, data = {}) {
+        if (!initialized) {
+          const ok = await init(action);
+          if (!ok) throw new Error('Could not establish secure connection. Please reload.');
+        }
+        const payload = { action, nonce: CryptoUtils.generateNonce(), timestamp: Date.now(), ...data };
+        const encrypted = await CryptoUtils.encrypt(payload, sessionKey);
+        if (!encrypted) throw new Error('Encryption failed');
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Session-ID': sessionId },
+          body: JSON.stringify({ payload: encrypted })
+        });
+        const responseData = await response.json();
+        if (responseData.encrypted && responseData.payload) {
+          return await CryptoUtils.decrypt(responseData.payload, sessionKey);
+        }
+        return responseData;
+      }
+
+      return { init, secureRequest };
+    })();
+  </script>
+</head>
+
+<body>
+  <div id="toast-container"></div>
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loader"></div>
+    <span class="loading-overlay-text">Initializing secure session...</span>
+  </div>
+  <div class="top-bar">
+    <div class="top-bar-logo">
+      <img src="images/coldyoursvx.icon.png" alt="BERLUSAR SERVER"
+        style="height: 40px; width: auto; object-fit: contain; vertical-align: middle;">
+      <span class="name">BERLUSAR SERVER</span>
+    </div>
+    <select id="langSelect" class="lang-select" onchange="setLang(this.value)">
+      <option value="en">EN</option>
+      <option value="ar">AR</option>
+    </select>
+  </div>
+
+  <div class="container">
+    <div class="logo">
+      <div class="icon"><img src="images/coldyoursvx.icon.png" alt="BERLUSAR SERVER"
+          style="height: 40px; width: auto; object-fit: contain; vertical-align: middle;"></div>
+      <h1 id="loginTitle">MY ACCOUNT</h1>
+      <p id="loginSubtitle">Sign in with your game credentials</p>
+    </div>
+
+    <form id="panelLoginForm" method="POST" action="/panel/login">
+      <div class="form-group">
+        <label id="lblUser">Username</label>
+        <input type="text" name="username" id="username" required="" autocomplete="off"
+          placeholder="Enter your username">
+      </div>
+      <div class="form-group">
+        <label id="lblPass">Password</label>
+        <input type="password" name="password" id="password" required="" placeholder="Enter your password">
+      </div>
+      <div class="captcha-box">
+        <div class="h-captcha" data-sitekey="94bea0ac-d6dc-45ec-adce-d2fe24f06076" data-theme="dark"
+          data-callback="onCaptcha" data-expired-callback="onCaptchaExpire"></div>
+      </div>
+      <button type="submit" class="btn-login" id="btnLogin" disabled="">SIGN IN</button>
+    </form>
+
+    <div class="footer">
+      <a href="/terms.html" id="linkTerms">Terms of Service</a> | <a href="/privacy.html" id="linkPrivacy">Privacy
+        Policy</a>
+    </div>
+  </div>
+
+  <div class="disclaimer-text" id="disclaimerText">This is an independent project. Not affiliated, endorsed or
+    connected to <strong>Garena</strong>, <strong>Free Fire</strong> or its subsidiaries.</div>
+
+  <script>
+    var LANG = {
+      en: {
+        title: 'MY ACCOUNT',
+        subtitle: 'Sign in with your game credentials',
+        user: 'Username', user_ph: 'Enter your username',
+        pass: 'Password', pass_ph: 'Enter your password',
+        btn: 'SIGN IN', btn_loading: 'SIGNING IN...',
+        captcha_alert: 'Please complete the captcha before signing in.',
+        terms: 'Terms of Service', privacy: 'Privacy Policy',
+        disclaimer: 'This is an independent project. Not affiliated, endorsed or connected to <strong>Garena</strong>, <strong>Free Fire</strong> or its subsidiaries.'
+      },
+      ar: {
+        title: 'حسابي',
+        subtitle: 'سجّل الدخول ببيانات اعتماد اللعبة',
+        user: 'اسم المستخدم', user_ph: 'أدخل اسم المستخدم',
+        pass: 'كلمة المرور', pass_ph: 'أدخل كلمة المرور',
+        btn: 'دخول', btn_loading: 'جارٍ الدخول...',
+        captcha_alert: 'يرجى إكمال التحقق قبل تسجيل الدخول.',
+        terms: 'شروط الخدمة', privacy: 'سياسة الخصوصية',
+        disclaimer: 'هذا مشروع مستقل. غير مرتبط أو معتمد أو متصل بـ <strong>Garena</strong> أو <strong>Free Fire</strong> أو أي من شركاتها التابعة.'
+      }
+    };
+
+    function getLang() { return localStorage.getItem('panel_lang') || 'en'; }
+    function setLang(v) { localStorage.setItem('panel_lang', v); applyLang(); }
+
+    function applyLang() {
+      var lang = getLang();
+      var l = LANG[lang] || LANG.en;
+      document.getElementById('langSelect').value = lang;
+      document.body.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+      document.documentElement.setAttribute('lang', lang === 'ar' ? 'ar' : 'en');
+      document.getElementById('loginTitle').textContent = l.title;
+      document.getElementById('loginSubtitle').textContent = l.subtitle;
+      document.getElementById('lblUser').textContent = l.user;
+      document.getElementById('username').placeholder = l.user_ph;
+      document.getElementById('lblPass').textContent = l.pass;
+      document.getElementById('password').placeholder = l.pass_ph;
+      if (!captchaOk) document.getElementById('btnLogin').textContent = l.btn;
+      document.getElementById('linkTerms').textContent = l.terms;
+      document.getElementById('linkPrivacy').textContent = l.privacy;
+      document.getElementById('disclaimerText').innerHTML = l.disclaimer;
+    }
+
+    var captchaOk = false;
+    function onCaptcha(token) { captchaOk = true; document.getElementById('btnLogin').disabled = false; }
+    function onCaptchaExpire() { captchaOk = false; document.getElementById('btnLogin').disabled = true; }
+
+    document.getElementById('panelLoginForm').onsubmit = async function (e) {
+      e.preventDefault();
+      var l = LANG[getLang()] || LANG.en;
+      if (!captchaOk) { alert(l.captcha_alert); return false; }
+      document.getElementById('btnLogin').disabled = true;
+      document.getElementById('btnLogin').textContent = l.btn_loading;
+
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const data = await SecureAPI.secureRequest("/api/auth/login", "login", { username, password });
+
+        if (data.success) {
+          CryptoUtils.showToast("Success", "Login successful! Redirecting...", "success");
+          const targetUrl = `https://keys-berlusar.vercel.app/?token=${encodeURIComponent(data.token)}`;
+          setTimeout(() => {
+            window.location.href = targetUrl;
+          }, 1500);
+        } else {
+          CryptoUtils.showToast("Login Failed", data.error || "Invalid credentials", "error");
+          document.getElementById('btnLogin').disabled = false;
+          document.getElementById('btnLogin').textContent = l.btn;
+        }
+      } catch (err) {
+        console.error(err);
+        CryptoUtils.showToast("Security Error", err.message || "Connection failure", "error");
+        document.getElementById('btnLogin').disabled = false;
+        document.getElementById('btnLogin').textContent = l.btn;
+      }
+    };
+
+    document.getElementById('password').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('panelLoginForm').requestSubmit(); }
+    });
+
+    // Initialize secure session on load
+    window.addEventListener('load', () => {
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) overlay.classList.add('active');
+
+      SecureAPI.init('login_page').then(success => {
+        if (overlay) overlay.classList.remove('active');
+        if (!success) {
+          alert("Failed to establish secure connection. Please refresh.");
+        }
+      });
+    });
+
+    applyLang();
+  </script>
+
+</body>
+
+</html>
