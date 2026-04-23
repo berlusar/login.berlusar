@@ -343,11 +343,22 @@
     window.CryptoUtils = (function () {
       function base64Encode(str) { return btoa(str); }
       function base64Decode(str) { return atob(str); }
-      function ab2str(buf) { return String.fromCharCode.apply(null, new Uint8Array(buf)); }
+      function ab2str(buf) {
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        for (let i = 0; i < bytes.length; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return binary;
+      }
 
       async function importKey(keyBase64) {
-        const keyData = Uint8Array.from(base64Decode(keyBase64), c => c.charCodeAt(0));
-        return await crypto.subtle.importKey('raw', keyData, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
+        const binaryString = base64Decode(keyBase64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return await crypto.subtle.importKey('raw', bytes, { name: 'AES-CBC' }, false, ['encrypt', 'decrypt']);
       }
 
       async function encrypt(data, keyBase64) {
@@ -522,6 +533,9 @@
     </form>
 
     <div class="footer">
+      <p style="margin-bottom: 12px; font-size: 13px; color: #888;">
+        Don't have an account? <a href="https://register-berlusar.vercel.app" style="color: #007BFF; font-weight: 700; text-decoration: none;">Create one here</a>
+      </p>
       <a href="/terms.html" id="linkTerms">Terms of Service</a> | <a href="/privacy.html" id="linkPrivacy">Privacy
         Policy</a>
     </div>
@@ -594,7 +608,17 @@
 
         if (data.success) {
           CryptoUtils.showToast("Success", "Login successful! Redirecting...", "success");
-          const targetUrl = `https://keys-berlusar.vercel.app/?token=${encodeURIComponent(data.token)}`;
+          
+          // Determine target URL - prioritize current domain for keys dashboard
+          let targetBase = "https://keys-berlusar.vercel.app";
+          if (window.location.hostname === "localhost") {
+            targetBase = "http://localhost:3000"; // Assuming keys runs on 3000
+          } else if (window.location.hostname.includes("vercel.app")) {
+            // Try to stay on the same vercel project or use subdomains if possible
+          }
+
+          const targetUrl = `${targetBase}/?auth=success&user=${encodeURIComponent(data.user.username)}&key=${encodeURIComponent(data.key || '')}&token=${encodeURIComponent(data.token)}`;
+          
           setTimeout(() => {
             window.location.href = targetUrl;
           }, 1500);
