@@ -35,219 +35,122 @@ if (!supabase) {
     console.log('[INFO] Supabase client initialized successfully.');
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 function decryptPayload(payload, keyBase64) {
-    try {
-        const parts = payload.split(':');
-        const iv = Buffer.from(parts[0], 'base64');
-        const encrypted = parts[1];
-        const key = Buffer.from(keyBase64, 'base64');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        let decrypted = decipher.update(encrypted, 'base64', 'utf8');
-        decrypted += decipher.final('utf8');
-        return JSON.parse(decrypted);
-    } catch (e) {
-        console.error('[DECRYPT ERROR]', e.message);
-        throw e;
-    }
+    const parts = payload.split(':');
+    const iv = Buffer.from(parts[0], 'base64');
+    const encrypted = parts[1];
+    const key = Buffer.from(keyBase64, 'base64');
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    return JSON.parse(decrypted);
 }
 
 function encryptResponse(dataObj, keyBase64) {
-    try {
-        const iv = crypto.randomBytes(16);
-        const key = Buffer.from(keyBase64, 'base64');
-        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-        let encrypted = cipher.update(JSON.stringify(dataObj), 'utf8', 'base64');
-        encrypted += cipher.final('base64');
-        return { encrypted: true, payload: iv.toString('base64') + ':' + encrypted };
-    } catch (e) {
-        console.error('[ENCRYPT ERROR]', e.message);
-        return { encrypted: false, ...dataObj };
-    }
+    const iv = crypto.randomBytes(16);
+    const key = Buffer.from(keyBase64, 'base64');
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    let encrypted = cipher.update(JSON.stringify(dataObj), 'utf8', 'base64');
+    encrypted += cipher.final('base64');
+    return { encrypted: true, payload: iv.toString('base64') + ':' + encrypted };
 }
 
-// ─── Endpoints ───────────────────────────────────────────────────────────────
-
-// Standard Session Init for Web
+// API Routes
 app.post('/api/session/init', Ze(async (req, res) => {
+    if (!supabase) {
+        return res.status(500).json({ error: 'Database connection not configured' });
+    }
+    
     const { fingerprint, action } = req.body;
     const sessionId = crypto.randomUUID();
     const key = crypto.randomBytes(32).toString('base64');
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes (user requested)
 
-    if (!supabase) {
-        console.warn('[SESSION] No Supabase client, using local session');
-        return res.json({ session_id: sessionId, key: key, _local: true });
-    }
+    const { error } = await supabase.from('sessions').insert([{
+        id: sessionId,
+        key: key,
+        fingerprint: fingerprint || 'unknown',
+        action: action || 'login_page',
+        expires_at: expiresAt.toISOString()
+    }]);
 
-    try {
-        const { error } = await supabase.from('sessions').insert([{
-            id: sessionId,
-            key: key,
-            fingerprint: fingerprint || 'unknown',
-            action: action || 'login_page',
-            expires_at: expiresAt.toISOString()
-        }]);
-
-        if (error) {
-            console.error('[SESSION DB ERROR]', error.message);
-            // Fallback to local session so the site doesn't break
-            return res.json({ session_id: sessionId, key: key, _local: true, warning: 'db_error' });
-        }
-    } catch (err) {
-        console.error('[SESSION FATAL ERROR]', err.message);
-        return res.json({ session_id: sessionId, key: key, _local: true });
+    if (error) {
+        console.error('[SESSION ERROR]', error);
+        return res.status(500).json({ 
+            error: 'Database error', 
+            message: error.message,
+            code: error.code,
+            details: error.details
+        });
     }
 
     res.json({ session_id: sessionId, key: key });
 }));
 
-// Web Login (Encrypted)
 app.post('/api/auth/login', Ze(async (req, res) => {
+    if (!supabase) return res.status(500).json({ error: 'Database not available' });
+    
     const sessionId = req.headers['x-session-id'];
-    const encryptedPayload = req.body.payload;
+    const { payload: encryptedPayload } = req.body;
 
-    if (!sessionId) return res.status(401).json({ error: 'Session ID missing' });
+    if (!sessionId) return res.status(401).json({ error: 'Session ID required' });
 
-    // Fetch session
-    let sessionKey = null;
-    try {
-        if (supabase) {
-            const { data: session, error: sessionError } = await supabase
-                .from('sessions')
-                .select('key')
-                .eq('id', sessionId)
-                .gt('expires_at', new Date().toISOString())
-                .maybeSingle();
-            
-            if (session) sessionKey = session.key;
-            if (sessionError) console.error('[SESSION DB ERROR]', sessionError.message);
-        }
-    } catch (err) {
-        console.error('[SESSION FETCH FATAL]', err.message);
+    const { data: session, error: sessionError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('id', sessionId)
+        .gt('expires_at', new Date().toISOString())
+        .single();
+
+    if (sessionError || !session) {
+        return res.status(401).json({ error: 'Invalid or expired session' });
     }
 
-    if (!sessionKey) return res.status(401).json({ error: 'Session expired or invalid. Please reload the page.' });
-
+    let data;
     try {
-        const decrypted = decryptPayload(encryptedPayload, sessionKey);
-        const { username, password } = decrypted;
-
-        if (!username || !password) {
-            return res.json(encryptResponse({ error: 'Username and password required' }, sessionKey));
-        }
-
-        // Fetch user
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', username)
-            .maybeSingle();
-
-        if (userError || !user) {
-            return res.json(encryptResponse({ success: false, error: 'Invalid username or password' }, sessionKey));
-        }
-
-        // Verify password
-        const validPass = await bcrypt.compare(password, user.password_hash);
-        if (!validPass) {
-            return res.json(encryptResponse({ success: false, error: 'Invalid username or password' }, sessionKey));
-        }
-
-        // Fetch user's key if available
-        let userKey = null;
-        const { data: keyData } = await supabase
-            .from('access_keys')
-            .select('key_value')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        
-        if (keyData) {
-            userKey = keyData.key_value;
-        }
-
-        const token = jwt.sign(
-            { id: user.id, username: user.username }, 
-            process.env.JWT_SECRET || 'super_secret_jwt_key', 
-            { expiresIn: '24h' }
-        );
-        
-        res.json(encryptResponse({ 
-            success: true, 
-            user: { username: user.username, uid: user.uid }, 
-            key: userKey,
-            token 
-        }, sessionKey));
-
+        data = decryptPayload(encryptedPayload, session.key);
     } catch (e) {
-        console.error('[LOGIN ERROR]', e);
-        res.status(400).json({ error: 'Security verification failed. Please try again.' });
+        return res.status(400).json({ error: 'Security failure' });
     }
+
+    const { username, password } = data;
+
+    const { data: user, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('username', username)
+        .maybeSingle();
+
+    if (error || !user) {
+        return res.status(401).json(encryptResponse({ error: 'Invalid credentials' }, session.key));
+    }
+
+    const validPass = await bcrypt.compare(password, user.password_hash);
+    if (!validPass) {
+        return res.status(401).json(encryptResponse({ error: 'Invalid credentials' }, session.key));
+    }
+
+    const token = jwt.sign(
+        { id: user.id, username: user.username, uid: user.uid },
+        process.env.JWT_SECRET || 'super_secret_jwt_key',
+        { expiresIn: '24h' }
+    );
+
+    // Set Cookie
+    res.cookie('auth_token', token, {
+        httpOnly: true,
+        secure: true, 
+        sameSite: 'None', 
+        maxAge: 24 * 60 * 60 * 1000,
+        path: '/'
+    });
+
+    // Delete session after use
+    await supabase.from('sessions').delete().eq('id', sessionId);
+
+    res.json(encryptResponse({ success: true, user: { username: user.username, uid: user.uid }, token }, session.key));
 }));
-
-/**
- * GAME MOD LOGIN ENDPOINT
- * This endpoint is designed for the game client (native) which might not
- * want to handle the complex AES-CBC session logic.
- */
-app.post('/api/mod/login', Ze(async (req, res) => {
-    const { username, password, hardware_id } = req.body;
-
-    if (!username || !password) {
-        return res.status(400).json({ status: 'error', message: 'Missing credentials' });
-    }
-
-    try {
-        const { data: user, error: userError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('username', username)
-            .maybeSingle();
-
-        if (userError || !user) {
-            return res.status(401).json({ status: 'error', message: 'Account not found' });
-        }
-
-        const validPass = await bcrypt.compare(password, user.password_hash);
-        if (!validPass) {
-            return res.status(401).json({ status: 'error', message: 'Incorrect password' });
-        }
-
-        // Fetch user's key if available
-        let userKey = null;
-        const { data: keyData } = await supabase
-            .from('access_keys')
-            .select('key_value')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        
-        if (keyData) {
-            userKey = keyData.key_value;
-        }
-
-        const token = jwt.sign({ id: user.id, username: user.username }, process.env.JWT_SECRET || 'super_secret_jwt_key', { expiresIn: '7d' });
-
-        console.log(`[MOD LOGIN] Success: ${username} (UID: ${user.uid})`);
-        
-        res.json({
-            status: 'success',
-            token: token,
-            user: {
-                username: user.username,
-                uid: user.uid,
-                key: userKey
-            }
-        });
-    } catch (err) {
-        console.error('[MOD LOGIN FATAL]', err);
-        res.status(500).json({ status: 'error', message: 'Internal server error' });
-    }
-}));
-
-// Health Check
-app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', supabase: !!supabase, time: new Date().toISOString() });
-});
 
 // Serve Static Files
 app.use(express.static(path.join(__dirname, '..')));
@@ -257,7 +160,7 @@ app.get('*', (req, res) => {
 
 // Error Handling
 app.use((err, req, res, next) => {
-    console.error('[FATAL]', err);
+    console.error('[LOGIN API ERROR]', err);
     res.status(500).json({ 
         error: 'Internal Server Error', 
         message: err.message 
@@ -265,3 +168,4 @@ app.use((err, req, res, next) => {
 });
 
 module.exports = app;
+
